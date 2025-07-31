@@ -1,0 +1,3 @@
+/Users/rose/projects/games/remake/build/CMakeFiles/chess.dir
+/Users/rose/projects/games/remake/build/CMakeFiles/edit_cache.dir
+/Users/rose/projects/games/remake/build/CMakeFiles/rebuild_cache.dir
