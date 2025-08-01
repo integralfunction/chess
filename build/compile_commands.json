@@ -1,8 +1,0 @@
-[
-{
-  "directory": "/Users/rose/projects/games/remake/build",
-  "command": "/usr/bin/c++  -I/Users/rose/projects/games/remake/include -isystem /opt/homebrew/Cellar/raylib/5.5/include -std=gnu++2b -arch arm64 -I/opt/homebrew/Cellar/raylib/5.5/include -o CMakeFiles/chess.dir/src/main.cpp.o -c /Users/rose/projects/games/remake/src/main.cpp",
-  "file": "/Users/rose/projects/games/remake/src/main.cpp",
-  "output": "CMakeFiles/chess.dir/src/main.cpp.o"
-}
-]
