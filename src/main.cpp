@@ -11,7 +11,7 @@ namespace Constants {
     inline const Color SQUARE_LIGHT = Color{235, 236, 208, 255};
     inline const Color SQUARE_DARK = Color{119, 149, 86, 255};
     // inline const Color SQUARE_SELECTED = Color{123, 252, 185, 128};
-    inline const Color SQUARE_SELECTED = GRAY;
+    inline const Color SQUARE_SELECTED = PINK;
     inline const Color TRANSPARENT = Color{0, 0, 0, 0};
 }  // namespace Constants
 
@@ -28,72 +28,62 @@ namespace Directions {
 }  // namespace Directions
 
 struct Piece {
-    static const int None = 0;
-    static const int Pawn = 1;    // 000001
-    static const int Knight = 2;  // 000011
-    static const int Bishop = 3;  // 000100
-    static const int Rook = 4;    // 000101
-    static const int Queen = 5;   // 000110
-    static const int King = 6;    // 000111
-                                  //
-    static const int Black = 8;   // 001000
-    static const int White = 16;  // 010000
+    static const int None = 0b00000;    // 0
+    static const int Pawn = 0b00001;    // 1
+    static const int Knight = 0b00011;  // 2
+    static const int Bishop = 0b00100;  // 3
+    static const int Rook = 0b00101;    // 4
+    static const int Queen = 0b00110;   // 5
+    static const int King = 0b00111;    // 6
+
+    static const int Black = 0b01000;  // 8
+    static const int White = 0b10000;  // 16
 };
 
 struct Square {
     // static const int None = 0;
-    static const int Selected = 1;   // 000001
-    static const int Indicator = 2;  // 000001
-                                     //
-    static const int Dark = 8;       // 001000
-    static const int Light = 16;     // 010000
+    static const int Selected = 0b00001;  // 1
+    static const int Indicator = 0b0010;  // 2
+                                          //
+    static const int Dark = 0b01000;      // 8
+    static const int Light = 0b10000;     // 16
 };
 
-struct Player {
-    static const int None = 0;
-    static const int Black = 1;
-    static const int White = 2;
-};
-
-int p = Player::Black;
-
-int forward(int from, int n) {
-    switch (p) {
-        case Player::Black:
-            return from + n;
-            break;
-        case Player::White:
-            return from - n;
-            break;
-    }
-    return 0;
-}
-
-//
-// enum class Square {
-//   // None = 0, // 000000
-//   //
-//   Selected = 1, // 000001
-//   Black = 8,    // 001000
-//   White = 16,   // 010000
+// struct Player {
+//     static const int Dark = 0b01000;   // 8
+//     static const int Light = 0b10000;  // 16
+//                                        //
+//     const int color;
+//     const int homeRow;
 // };
+
+// class Player {
+//    public:
+//     const int color;
+//     int homeColumn;
+//     Player(int clr) : color(clr) {
+//         if (clr == Piece::Black) {
+//             homeColumn = 1;
+//         } else {
+//             homeColumn = 6;
+//         }
+//     };
+// };
+//
+// Player player = Player(Piece::Black);
 
 void debug(std::string s) { TraceLog(LOG_INFO, s.c_str()); }
 
-bool has_flag(int a, int b) { return (a & b) == b; }
+// bool has_flag(int a, int b) { return (a & b) == b; }
 
-int get_color(int a) {
-    if (has_flag(a, Piece::White)) {
-        return Piece::White;
-    }
-    if (has_flag(a, Piece::Black)) {
-        return Piece::Black;
-    }
-    return 0;
-}
+int piece_type(int a) { return a & 0b00111; }
 
-bool is_opposite_color(int a, int b) { return get_color(a) != get_color(b); }
-bool is_same_color(int a, int b) { return get_color(a) == get_color(b); }
+// the only reason these are the same is because i used both 8,16 as flags for pieces and squares. the bit masks would have to be different if different numbers
+int piece_color(int a) { return a & 0b11000; }
+int square_color(int a) { return a & 0b11000; }
+
+bool square_is_selected(int a) { return (a & Square::Selected) == Square::Selected; }
+bool square_is_indicator(int a) { return (a & Square::Indicator) == Square::Indicator; }
 
 bool within_rectangle(Vector2 mouse_position, Rectangle r) {
     //
@@ -110,7 +100,39 @@ Rectangle rectangle_from_row_column(int row, int column) {
     };
 };
 
+// int transpose(std::array<std::array<int, 8>, 8> *pieces, Vector2 initial_position, int drow, int dcol) {
+//     int piece = (*pieces)[initial_position.x][initial_position.y];
+//     int y;
+//     switch (piece_color(piece)) {
+//         case Piece::Black:
+//             y = dcol;
+//             break;
+//         case Piece::White:
+//             y = -dcol;
+//             break;
+//     }
+//
+//     return (*pieces)[initial_position.x + drow][initial_position.y + y];
+// }
+Vector2 transpose(std::array<std::array<int, 8>, 8> *pieces, Vector2 initial_position, int drow, int dcol) {
+    int piece = (*pieces)[initial_position.x][initial_position.y];
+    Vector2 final;
+
+    switch (piece_color(piece)) {
+        case Piece::Black:
+            final = {initial_position.x + drow, initial_position.y + dcol};
+            break;
+        case Piece::White:
+            final = {initial_position.x + drow, initial_position.y - dcol};
+            break;
+    }
+    return final;
+}
+
 std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column, std::vector<Direction> directions) {
+    //
+    int starting_piece = (*pieces)[starting_row][starting_column];
+
     std::vector<std::array<int, 2>> result;
     for (auto &direction : directions) {
         Vector2 temp_pos = Vector2{(float)starting_row, (float)starting_column};
@@ -121,17 +143,12 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                     temp_pos.y++;
 
                     auto p = (*pieces)[starting_row][temp_pos.y];
-                    // If theres some piece in here
                     if (p) {
-                        if (is_same_color(p, (*pieces)[starting_row][starting_column])) {
-                            break;
-                        }
-                        if (is_opposite_color(p, (*pieces)[starting_row][starting_column])) {
+                        if (piece_color(p) != piece_color(starting_piece)) {
                             result.push_back({(int)starting_row, (int)temp_pos.y});
-                            break;
                         }
+                        break;
                     }
-
                     result.push_back({starting_row, (int)temp_pos.y});
                 }
                 break;
@@ -139,18 +156,13 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                 while (temp_pos.x < 7) {
                     temp_pos.x++;
                     auto p = (*pieces)[temp_pos.x][starting_column];
-                    // If theres some piece in here
                     if (p) {
-                        if (is_same_color(p, (*pieces)[starting_row][starting_column])) {
-                            break;
-                        }
-                        if (is_opposite_color(p, (*pieces)[starting_row][starting_column])) {
+                        if (piece_color(p) != piece_color(starting_piece)) {
                             result.push_back({(int)temp_pos.x, (int)starting_column});
-                            break;
                         }
+                        break;
                     }
                     result.push_back({(int)temp_pos.x, starting_column});
-                    // debug(std::format("{}", temp_pos.y));
                 }
 
                 break;
@@ -158,15 +170,11 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                 while (temp_pos.y > 0) {
                     temp_pos.y--;
                     auto p = (*pieces)[starting_row][temp_pos.y];
-                    // If theres some piece in here
                     if (p) {
-                        if (is_same_color(p, (*pieces)[starting_row][starting_column])) {
-                            break;
+                        if (piece_color(p) != piece_color(starting_piece)) {
+                            result.push_back({(int)starting_row, (int)temp_pos.y});
                         }
-                        if (is_opposite_color(p, (*pieces)[starting_row][starting_column])) {
-                            result.push_back({(int)temp_pos.x, (int)starting_column});
-                            break;
-                        }
+                        break;
                     }
                     result.push_back({starting_row, (int)temp_pos.y});
                     // debug(std::format("{}", temp_pos.y));
@@ -177,15 +185,11 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                 while (temp_pos.x > 0) {
                     temp_pos.x--;
                     auto p = (*pieces)[temp_pos.x][starting_column];
-                    // If theres some piece in here
                     if (p) {
-                        if (is_same_color(p, (*pieces)[starting_row][starting_column])) {
-                            break;
-                        }
-                        if (is_opposite_color(p, (*pieces)[starting_row][starting_column])) {
+                        if (piece_color(p) != piece_color(starting_piece)) {
                             result.push_back({(int)temp_pos.x, (int)starting_column});
-                            break;
                         }
+                        break;
                     }
                     result.push_back({(int)temp_pos.x, starting_column});
                     // debug(std::format("{}", temp_pos.y));
@@ -196,15 +200,11 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                     temp_pos.x++;
                     temp_pos.y++;
                     auto p = (*pieces)[temp_pos.x][temp_pos.y];
-                    // If theres some piece in here
                     if (p) {
-                        if (is_same_color(p, (*pieces)[starting_row][starting_column])) {
-                            break;
-                        }
-                        if (is_opposite_color(p, (*pieces)[starting_row][starting_column])) {
+                        if (piece_color(p) != piece_color(starting_piece)) {
                             result.push_back({(int)temp_pos.x, (int)temp_pos.y});
-                            break;
                         }
+                        break;
                     }
                     result.push_back({(int)temp_pos.x, (int)temp_pos.y});
                     // debug(std::format("{}", temp_pos.y));
@@ -215,18 +215,13 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                     temp_pos.x++;
                     temp_pos.y--;
                     auto p = (*pieces)[temp_pos.x][temp_pos.y];
-                    // If theres some piece in here
                     if (p) {
-                        if (is_same_color(p, (*pieces)[starting_row][starting_column])) {
-                            break;
-                        }
-                        if (is_opposite_color(p, (*pieces)[starting_row][starting_column])) {
+                        if (piece_color(p) != piece_color(starting_piece)) {
                             result.push_back({(int)temp_pos.x, (int)temp_pos.y});
-                            break;
                         }
+                        break;
                     }
                     result.push_back({(int)temp_pos.x, (int)temp_pos.y});
-                    // debug(std::format("{}", temp_pos.y));
                 }
                 break;
             case (Direction::SouthWest):
@@ -234,18 +229,14 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                     temp_pos.x--;
                     temp_pos.y--;
                     auto p = (*pieces)[temp_pos.x][temp_pos.y];
-                    // If theres some piece in here
                     if (p) {
-                        if (is_same_color(p, (*pieces)[starting_row][starting_column])) {
-                            break;
-                        }
-                        if (is_opposite_color(p, (*pieces)[starting_row][starting_column])) {
+                        if (piece_color(p) != piece_color(starting_piece)) {
                             result.push_back({(int)temp_pos.x, (int)temp_pos.y});
-                            break;
                         }
+                        break;
                     }
+
                     result.push_back({(int)temp_pos.x, (int)temp_pos.y});
-                    // debug(std::format("{}", temp_pos.y));
                 }
                 break;
             case (Direction::NorthWest):
@@ -253,24 +244,41 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                     temp_pos.x--;
                     temp_pos.y++;
                     auto p = (*pieces)[temp_pos.x][temp_pos.y];
-                    // If theres some piece in here
                     if (p) {
-                        if (is_same_color(p, (*pieces)[starting_row][starting_column])) {
-                            break;
-                        }
-                        if (is_opposite_color(p, (*pieces)[starting_row][starting_column])) {
+                        if (piece_color(p) != piece_color(starting_piece)) {
                             result.push_back({(int)temp_pos.x, (int)temp_pos.y});
-                            break;
                         }
+                        break;
                     }
                     result.push_back({(int)temp_pos.x, (int)temp_pos.y});
-                    // debug(std::format("{}", temp_pos.y));
                 }
                 break;
         }
     }
 
     return result;
+}
+
+/* Generic function for any piece */
+bool is_valid_move(std::array<std::array<int, 8>, 8> *pieces, Vector2 starting_position, Vector2 ending_position) {
+    int starting_piece = (*pieces)[starting_position.x][starting_position.y];
+    int ending_piece = (*pieces)[ending_position.x][ending_position.y];
+
+    if (!(ending_position.x >= 0 && ending_position.x <= 7 && ending_position.y >= 0 && ending_position.y <= 7)) {
+        return false;
+    }
+
+    if (piece_color(starting_piece) == piece_color(ending_piece)) {
+        return false;
+    }
+
+    // TODO: optimization
+    for (int x = 0; x < 8; x++) {
+        for (int y = 0; y < 8; y++) {
+        }
+    }
+
+    return true;
 }
 
 std::vector<std::array<int, 2>> get_knight_moves(std::array<std::array<int, 8>, 8> *pieces, int row, int column) {
@@ -289,71 +297,122 @@ std::vector<std::array<int, 2>> get_knight_moves(std::array<std::array<int, 8>, 
         {row + 2, column - 1},
     }};
     for (const auto &[x, y] : candidates) {
-        if (x >= 0 && x <= 7 && y >= 0 && y <= 7) {
-            if (!is_same_color((*pieces)[x][y], (*pieces)[row][column])) {
-                result.push_back({x, y});
-            }
+        if (is_valid_move(pieces, Vector2{(float)row, (float)column}, Vector2{(float)x, (float)y})) {
+            result.push_back({x, y});
         };
     }
+    return result;
+}
+
+std::vector<std::array<int, 2>> get_king_moves(std::array<std::array<int, 8>, 8> *pieces, int row, int column) {
+    std::vector<std::array<int, 2>> result;
+
+    std::array<std::array<int, 2>, 8> candidates = {{
+        // top
+        {row - 1, column + 1},
+        {row, column + 1},
+        {row + 1, column + 1},
+        //  >:3
+        {row - 1, column},
+        {row + 1, column},
+
+        // bottom
+        {row - 1, column - 1},
+        {row, column - 1},
+        {row + 1, column - 1},
+    }};
+    for (const auto &[x, y] : candidates) {
+        if (is_valid_move(pieces, Vector2{(float)row, (float)column}, Vector2{(float)x, (float)y})) {
+            result.push_back({x, y});
+        };
+    }
+
+    // TODO: Casting O-O and O-O-O
+    return result;
+}
+
+std::vector<std::array<int, 2>> get_pawn_moves(std::array<std::array<int, 8>, 8> *pieces, int row, int column) {
+    std::vector<std::array<int, 2>> result;
+
+    int piece = (*pieces)[row][column];
+
+    // If there is no piece in front of the pawn, it can move 1 square forward
+    auto rc = transpose(pieces, {(float)row, (float)column}, 0, 1);
+    auto t = (*pieces)[rc.x][rc.y];
+    ;
+    if (!t) {
+        result.push_back({(int)rc.x, (int)rc.y});
+    }
+
+    // If theres nothing in front, and if it's on the second file, it can move 2 square forward
+    //
+    auto rc2 = transpose(pieces, {(float)row, (float)column}, 0, 2);
+    auto t2 = (*pieces)[rc2.x][rc2.y];
+    if (!t && !t2) {
+        if ((piece_color(piece) == Piece::White && column == 6) || (piece_color(piece) == Piece::Black && column == 1)) {
+            result.push_back({(int)rc2.x, (int)rc2.y});
+        }
+    }
+
+    // If theres a piece on the opposite color on the top left/right, it can eat it
+    auto rctl = transpose(pieces, {(float)row, (float)column}, -1, 1);
+    auto tl = (*pieces)[rctl.x][rctl.y];
+    if (tl) {
+        if (piece_color(piece) != piece_color(tl)) {
+            result.push_back({(int)rctl.x, (int)rctl.y});
+        }
+    }
+    auto rctr = transpose(pieces, {(float)row, (float)column}, 1, 1);
+    auto tr = (*pieces)[rctr.x][rctr.y];
+    if (tr) {
+        if (piece_color(piece) != piece_color(tr)) {
+            result.push_back({(int)rctr.x, (int)rctr.y});
+        }
+    }
+
+    // TODO: En passant
+
     return result;
 }
 
 std::vector<std::array<int, 2>> get_valid_moves(std::array<std::array<int, 8>, 8> *squares, std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column) {
     std::vector<std::array<int, 2>> result;
 
-    if (has_flag((*pieces)[starting_row][starting_column], Piece::Queen)) {
-        auto ds = get_squares_in_directions(pieces, starting_row, starting_column, Directions::Queen);
-        result.insert(result.end(), ds.begin(), ds.end());
+    int starting_piece = (*pieces)[starting_row][starting_column];
 
-    } else if (has_flag((*pieces)[starting_row][starting_column], Piece::Bishop)) {
-        auto ds = get_squares_in_directions(pieces, starting_row, starting_column, Directions::Bishop);
-        result.insert(result.end(), ds.begin(), ds.end());
-
-    } else if (has_flag((*pieces)[starting_row][starting_column], Piece::Rook)) {
-        auto ds = get_squares_in_directions(pieces, starting_row, starting_column, Directions::Rook);
-        result.insert(result.end(), ds.begin(), ds.end());
-    } else if (has_flag((*pieces)[starting_row][starting_column], Piece::Knight)) {
-        // Knight
-        auto ds = get_knight_moves(pieces, starting_row, starting_column);
-        result.insert(result.end(), ds.begin(), ds.end());
-        // candidates = [
-        //        // top
-        //        [x - 2, y + 1],
-        //        [x - 1, y + 2],
-        //        [x + 1, y + 2],
-        //        [x + 2, y + 1],
-        //        // bottom
-        //        [x - 2, y - 1],
-        //        [x - 1, y - 2],
-        //        [x + 1, y - 2],
-        //        [x + 2, y - 1],
-        //    ];
-        //
-    } else if (has_flag((*pieces)[starting_row][starting_column], Piece::Pawn)) {
-        std::vector<std::array<int, 2>> ds;
-        // If there is no piece in front of the pawn, it can move
-        auto t = (*pieces)[starting_row][starting_column + 1];
-        if (!t) {
-            ds.push_back({(int)starting_row, (int)starting_column + 1});
-        }
-
-        auto tl = (*pieces)[starting_row - 1][starting_column + 1];
-        if (tl) {
-            if (is_opposite_color((*pieces)[starting_row][starting_column], tl)) {
-                ds.push_back({(int)starting_row - 1, (int)starting_column + 1});
-            }
-        }
-
-        auto tr = (*pieces)[starting_row + 1][starting_column + 1];
-        if (tr) {
-            if (is_opposite_color((*pieces)[starting_row][starting_column], tr)) {
-                ds.push_back({(int)starting_row + 1, (int)starting_column + 1});
-            }
-        }
-        result.insert(result.end(), ds.begin(), ds.end());
+    std::vector<Direction> d;
+    switch (piece_type(starting_piece)) {
+        // case Piece::Pawn:
+        // case Piece::Knight:
+        case (Piece::Bishop):
+            d = Directions::Bishop;
+            break;
+        case Piece::Rook:
+            d = Directions::Rook;
+            break;
+        case (Piece::Queen):
+            d = Directions::Queen;
+            break;
+            // case Piece::King:
+    }
+    if (!d.empty()) {
+        auto destinations = get_squares_in_directions(pieces, starting_row, starting_column, d);
+        result.insert(result.end(), destinations.begin(), destinations.end());
+        return result;
     }
 
-    // debug(std::format("finaly result {}", result));
+    if (piece_type(starting_piece) == Piece::Pawn) {
+        auto moves = get_pawn_moves(pieces, starting_row, starting_column);
+        result.insert(result.end(), moves.begin(), moves.end());
+    } else if (piece_type(starting_piece) == Piece::Knight) {
+        auto moves = get_knight_moves(pieces, starting_row, starting_column);
+        result.insert(result.end(), moves.begin(), moves.end());
+    } else if (piece_type(starting_piece) == Piece::King) {
+        auto moves = get_king_moves(pieces, starting_row, starting_column);
+        result.insert(result.end(), moves.begin(), moves.end());
+    }
+
+    debug(std::format("finaly result {}", result));
     return result;
 }
 
@@ -376,17 +435,17 @@ std::tuple<int, Texture2D> load_piece_texture(int piece) {
         filename.append("w");
     }
 
-    if (has_flag(piece, Piece::Queen)) {
+    if (piece_type(piece) == Piece::Queen) {
         filename.append("Q");
-    } else if (has_flag(piece, Piece::Bishop)) {
+    } else if (piece_type(piece) == Piece::Bishop) {
         filename.append("B");
-    } else if (has_flag(piece, Piece::Pawn)) {
+    } else if (piece_type(piece) == Piece::Pawn) {
         filename.append("P");
-    } else if (has_flag(piece, Piece::King)) {
+    } else if (piece_type(piece) == Piece::King) {
         filename.append("K");
-    } else if (has_flag(piece, Piece::Knight)) {
+    } else if (piece_type(piece) == Piece::Knight) {
         filename.append("N");
-    } else if (has_flag(piece, Piece::Rook)) {
+    } else if (piece_type(piece) == Piece::Rook) {
         filename.append("R");
     }
 
@@ -442,8 +501,6 @@ void update_squares(std::array<std::array<int, 8>, 8> *squares) {
 }
 
 void move_piece(std::array<std::array<int, 8>, 8> *pieces, int i_row, int i_col, int f_row, int f_col) {
-    if ((*pieces)[f_row][f_col]) {
-    }
     (*pieces)[f_row][f_col] = (*pieces)[i_row][i_col];
     if ((i_row != f_row) || (i_col != f_col)) {
         (*pieces)[i_row][i_col] = Piece::None;
@@ -457,18 +514,19 @@ Vector2 pressed_mouse_pos = {0, 0};
 void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::array<int, 8>, 8> *pieces) {
     Vector2 mouse_position = GetMousePosition();
     Rectangle board_rect = Rectangle{0, 0, Constants::SQUARE_LENGTH * 8, Constants::SQUARE_LENGTH * 8};
+
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if (within_rectangle(mouse_position, board_rect)) {
             pressed_mouse_pos = mouse_position;
             Vector2 inital_row_col = row_col_from_mouse_position(mouse_position);
-            debug(std::format("{}, {}", inital_row_col.x, inital_row_col.y));
+            // debug(std::format("{}, {}", inital_row_col.x, inital_row_col.y));
 
             auto valid_moves = get_valid_moves(squares, pieces, inital_row_col.x, inital_row_col.y);
 
             (*squares)[inital_row_col.x][inital_row_col.y] ^= Square::Selected;
 
-            for (auto &move : valid_moves) {
-                (*squares)[move[0]][move[1]] ^= Square::Indicator;
+            for (auto &[r, c] : valid_moves) {
+                (*squares)[r][c] ^= Square::Indicator;
             }
         }
     }
@@ -478,9 +536,8 @@ void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::ar
         auto valid_moves = get_valid_moves(squares, pieces, inital_row_col.x, inital_row_col.y);
 
         (*squares)[inital_row_col.x][inital_row_col.y] ^= Square::Selected;
-
-        for (auto &move : valid_moves) {
-            (*squares)[move[0]][move[1]] ^= Square::Indicator;
+        for (auto &[r, c] : valid_moves) {
+            (*squares)[r][c] ^= Square::Indicator;
         }
 
         if (within_rectangle(mouse_position, board_rect)) {
@@ -532,20 +589,21 @@ void draw_squares(std::array<std::array<int, 8>, 8> *squares) {
     for (int row = 0; row < 8; row++) {
         for (int column = 0; column < 8; column++) {
             auto rect = rectangle_from_row_column(row, column);
-            if (has_flag((*squares)[row][column], Square::Dark)) {
+            int current_square = (*squares)[row][column];
+            if (square_color(current_square) == Square::Dark) {
                 DrawRectangle(rect.x, rect.y, rect.width, rect.height, Constants::SQUARE_DARK);
-            } else if (has_flag((*squares)[row][column], Square::Light)) {
+            } else if (square_color(current_square) == Square::Light) {
                 DrawRectangle(rect.x, rect.y, rect.width, rect.height, Constants::SQUARE_LIGHT);
             }
-            if (has_flag((*squares)[row][column], Square::Selected)) {
+            // if (has_flag((*squares)[row][column], Square::Selected)) {
+            if (square_is_selected(current_square)) {
                 DrawRectangle(rect.x, rect.y, rect.width, rect.height, Constants::SQUARE_SELECTED);
             }
-            if (has_flag((*squares)[row][column], Square::Indicator)) {
+            if (square_is_indicator(current_square)) {
                 int centerX = rect.x + 0.5 * rect.width;
                 int centerY = rect.y + 0.5 * rect.height;
-                int radius = 0.25 * rect.width;
+                int radius = 0.125 * rect.width;
                 DrawCircle(centerX, centerY, radius, Constants::SQUARE_SELECTED);
-                //
             }
         }
     }
@@ -553,17 +611,12 @@ void draw_squares(std::array<std::array<int, 8>, 8> *squares) {
 int main(void) {
     // Initialization
     //--------------------------------------------------------------------------------------
-    const int screenWidth = 800;
-    const int screenHeight = 450;
+    const int screenWidth = Constants::SQUARE_LENGTH * 8;
+    const int screenHeight = Constants::SQUARE_LENGTH * 8;
 
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
 
     SetTargetFPS(60);
-
-    // auto black_queen_texture = load_piece_texture(Piece::Black | Piece::Queen);
-    //
-    // pieces []
-    // squares []
 
     std::array<std::array<int, 8>, 8> pieces;
 
@@ -580,6 +633,7 @@ int main(void) {
         }
     }
 
+    // Load Dark Pieces //
     for (int row = 0; row < 8; row++) {
         pieces[row][1] = Piece::Black | Piece::Pawn;
     }
@@ -592,13 +646,21 @@ int main(void) {
     pieces[6][0] = Piece::Black | Piece::Knight;
     pieces[7][0] = Piece::Black | Piece::Rook;
 
-    pieces[5][7 - 1] = Piece::White | Piece::Pawn;
+    // Load White Pieces //
+    for (int x = 0; x < 8; x++) {
+        pieces[x][6] = Piece::White | Piece::Pawn;
+    }
+    pieces[0][7] = Piece::White | Piece::Rook;
+    pieces[1][7] = Piece::White | Piece::Knight;
+    pieces[2][7] = Piece::White | Piece::Bishop;
+    pieces[3][7] = Piece::White | Piece::Queen;
+    pieces[4][7] = Piece::White | Piece::King;
+    pieces[5][7] = Piece::White | Piece::Bishop;
+    pieces[6][7] = Piece::White | Piece::Knight;
+    pieces[7][7] = Piece::White | Piece::Rook;
 
-    // pieces[1][1] = Piece::Black | Piece::Queen;
-    // pieces[4][5] = Piece::White | Piece::Bishop;
-    // pieces[3][2] = Piece::Black | Piece::Pawn;
-
-    std::vector<std::tuple<int, Texture2D>> all_textures = load_textures(&pieces);
+    // Load textures
+    std::vector<std::tuple<int, Texture2D>> piece_textures = load_textures(&pieces);
 
     // debug(std::format("{}", 0b0110 | 0b1000));
     // debug(std::format("{}", 0b0001));
@@ -618,9 +680,6 @@ int main(void) {
         // Draw
         //----------------------------------------------------------------------------------
         BeginDrawing();
-
-        // debug(std::format("{}", get_color(Piece::None)));
-
         ClearBackground(BLUE);
 
         //
@@ -628,8 +687,7 @@ int main(void) {
         // LIGHTGRAY);
 
         draw_squares(&squares);
-        draw_pieces(&pieces, &all_textures);
-        // draw_piece_texture(black_queen_texture, 1, 2);
+        draw_pieces(&pieces, &piece_textures);
 
         EndDrawing();
 
@@ -639,7 +697,7 @@ int main(void) {
     // De-Initialization
     //--------------------------------------------------------------------------------------
 
-    unload_textures(&all_textures);
+    unload_textures(&piece_textures);
     CloseWindow();  // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
 
