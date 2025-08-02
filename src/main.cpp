@@ -15,9 +15,15 @@ namespace Constants {
     inline const Color TRANSPARENT = Color{0, 0, 0, 0};
 }  // namespace Constants
 
-namespace Moves {
-    inline const std::array<int, 2> Queen = {2, 2};
-}
+typedef struct Position {
+    int x;
+    int y;
+} Position;
+bool operator==(const Position &lhs, const Position &rhs) { return (lhs.x == rhs.x) && (lhs.y == rhs.y); }
+
+// namespace Moves {
+//     inline const std::array<int, 2> Queen = {2, 2};
+// }
 
 enum class Direction { North, East, South, West, NorthEast, SouthEast, SouthWest, NorthWest };
 
@@ -53,6 +59,7 @@ class Player {
    public:
     const int color;
     int homeColumn;
+    int number_of_moves;
     Player(int clr) : color(clr) {
         if (clr == Piece::Black) {
             homeColumn = 1;
@@ -82,23 +89,23 @@ bool within_rectangle(Vector2 mouse_position, Rectangle r) {
     return (mouse_position.x >= (r.x)) && (mouse_position.x <= (r.x + r.width)) && (mouse_position.y >= r.y) && (mouse_position.y <= (r.y + r.width));
 }
 
-Rectangle rectangle_from_row_column(int row, int column) {
+Rectangle rectangle_from_x_y(int x, int y) {
     // TODO: bounds checking
     return Rectangle{
-        (float)row * Constants::SQUARE_LENGTH,
-        (float)(7 - column) * Constants::SQUARE_LENGTH,
+        (float)x * Constants::SQUARE_LENGTH,
+        (float)(7 - y) * Constants::SQUARE_LENGTH,
         Constants::SQUARE_LENGTH,
         Constants::SQUARE_LENGTH,
     };
 };
 
-Vector2 row_col_from_mouse_position(Vector2 mouse_position) {
+Position position_from_mouse_position(Vector2 mouse_position) {
     // auto x = ((int)trunc(mouse_position.x) - Board::OFFSET) / LENGTH;
     // auto y = ((int)trunc(mouse_position.y) - Board::OFFSET) / LENGTH;
     auto row = ((int)trunc(mouse_position.x)) / Constants::SQUARE_LENGTH;
     auto y = ((int)trunc(mouse_position.y)) / Constants::SQUARE_LENGTH;
     auto col = 7 - y;
-    return Vector2{(float)row, (float)col};
+    return Position{row, col};
 }
 
 // int transpose(std::array<std::array<int, 8>, 8> *pieces, Vector2 initial_position, int drow, int dcol) {
@@ -192,54 +199,55 @@ void unload_textures(std::vector<std::tuple<int, Texture2D>> *piece_textures) {
     }
 }
 
-std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column, std::vector<Direction> directions) {
+std::vector<Position> get_positions_in_directions(std::array<std::array<int, 8>, 8> *pieces, Position starting_position, std::vector<Direction> directions) {
     //
+    int starting_row = starting_position.x;
+    int starting_column = starting_position.y;
     int starting_piece = (*pieces)[starting_row][starting_column];
 
-    std::vector<std::array<int, 2>> result;
+    std::vector<Position> result;
     for (auto &direction : directions) {
-        Vector2 temp_pos = Vector2{(float)starting_row, (float)starting_column};
+        Position temp_pos = Position{starting_row, starting_column};
         // debug(std::format("Bee  {}", temp_pos.y));
         switch (direction) {
             case (Direction::North):
                 while (temp_pos.y < 7) {
                     temp_pos.y++;
-
-                    auto p = (*pieces)[starting_row][temp_pos.y];
+                    int p = (*pieces)[starting_row][temp_pos.y];
                     if (p) {
                         if (piece_color(p) != piece_color(starting_piece)) {
-                            result.push_back({(int)starting_row, (int)temp_pos.y});
+                            result.push_back({starting_row, temp_pos.y});
                         }
                         break;
                     }
-                    result.push_back({starting_row, (int)temp_pos.y});
+                    result.push_back({starting_row, temp_pos.y});
                 }
                 break;
             case (Direction::East):
                 while (temp_pos.x < 7) {
                     temp_pos.x++;
-                    auto p = (*pieces)[temp_pos.x][starting_column];
+                    int p = (*pieces)[temp_pos.x][starting_column];
                     if (p) {
                         if (piece_color(p) != piece_color(starting_piece)) {
-                            result.push_back({(int)temp_pos.x, (int)starting_column});
+                            result.push_back({temp_pos.x, starting_column});
                         }
                         break;
                     }
-                    result.push_back({(int)temp_pos.x, starting_column});
+                    result.push_back({temp_pos.x, starting_column});
                 }
 
                 break;
             case (Direction::South):
                 while (temp_pos.y > 0) {
                     temp_pos.y--;
-                    auto p = (*pieces)[starting_row][temp_pos.y];
+                    int p = (*pieces)[starting_row][temp_pos.y];
                     if (p) {
                         if (piece_color(p) != piece_color(starting_piece)) {
-                            result.push_back({(int)starting_row, (int)temp_pos.y});
+                            result.push_back({starting_row, temp_pos.y});
                         }
                         break;
                     }
-                    result.push_back({starting_row, (int)temp_pos.y});
+                    result.push_back({starting_row, temp_pos.y});
                     // debug(std::format("{}", temp_pos.y));
                 }
 
@@ -247,14 +255,14 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
             case (Direction::West):
                 while (temp_pos.x > 0) {
                     temp_pos.x--;
-                    auto p = (*pieces)[temp_pos.x][starting_column];
+                    int p = (*pieces)[temp_pos.x][starting_column];
                     if (p) {
                         if (piece_color(p) != piece_color(starting_piece)) {
-                            result.push_back({(int)temp_pos.x, (int)starting_column});
+                            result.push_back({temp_pos.x, starting_column});
                         }
                         break;
                     }
-                    result.push_back({(int)temp_pos.x, starting_column});
+                    result.push_back({temp_pos.x, starting_column});
                     // debug(std::format("{}", temp_pos.y));
                 }
                 break;
@@ -262,14 +270,14 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                 while (temp_pos.y < 7 && temp_pos.x < 7) {
                     temp_pos.x++;
                     temp_pos.y++;
-                    auto p = (*pieces)[temp_pos.x][temp_pos.y];
+                    int p = (*pieces)[temp_pos.x][temp_pos.y];
                     if (p) {
                         if (piece_color(p) != piece_color(starting_piece)) {
-                            result.push_back({(int)temp_pos.x, (int)temp_pos.y});
+                            result.push_back({temp_pos.x, temp_pos.y});
                         }
                         break;
                     }
-                    result.push_back({(int)temp_pos.x, (int)temp_pos.y});
+                    result.push_back({temp_pos.x, temp_pos.y});
                     // debug(std::format("{}", temp_pos.y));
                 }
                 break;
@@ -277,43 +285,43 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
                 while (temp_pos.y > 0 && temp_pos.x < 7) {
                     temp_pos.x++;
                     temp_pos.y--;
-                    auto p = (*pieces)[temp_pos.x][temp_pos.y];
+                    int p = (*pieces)[temp_pos.x][temp_pos.y];
                     if (p) {
                         if (piece_color(p) != piece_color(starting_piece)) {
-                            result.push_back({(int)temp_pos.x, (int)temp_pos.y});
+                            result.push_back({temp_pos.x, temp_pos.y});
                         }
                         break;
                     }
-                    result.push_back({(int)temp_pos.x, (int)temp_pos.y});
+                    result.push_back({temp_pos.x, temp_pos.y});
                 }
                 break;
             case (Direction::SouthWest):
                 while (temp_pos.y > 0 && temp_pos.x > 0) {
                     temp_pos.x--;
                     temp_pos.y--;
-                    auto p = (*pieces)[temp_pos.x][temp_pos.y];
+                    int p = (*pieces)[temp_pos.x][temp_pos.y];
                     if (p) {
                         if (piece_color(p) != piece_color(starting_piece)) {
-                            result.push_back({(int)temp_pos.x, (int)temp_pos.y});
+                            result.push_back({temp_pos.x, temp_pos.y});
                         }
                         break;
                     }
 
-                    result.push_back({(int)temp_pos.x, (int)temp_pos.y});
+                    result.push_back({temp_pos.x, temp_pos.y});
                 }
                 break;
             case (Direction::NorthWest):
                 while (temp_pos.y < 7 && temp_pos.x > 0) {
                     temp_pos.x--;
                     temp_pos.y++;
-                    auto p = (*pieces)[temp_pos.x][temp_pos.y];
+                    int p = (*pieces)[temp_pos.x][temp_pos.y];
                     if (p) {
                         if (piece_color(p) != piece_color(starting_piece)) {
-                            result.push_back({(int)temp_pos.x, (int)temp_pos.y});
+                            result.push_back({temp_pos.x, temp_pos.y});
                         }
                         break;
                     }
-                    result.push_back({(int)temp_pos.x, (int)temp_pos.y});
+                    result.push_back({temp_pos.x, temp_pos.y});
                 }
                 break;
         }
@@ -322,72 +330,76 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
     return result;
 }
 
-typedef struct Position {
-    int x;
-    int y;
-} Position;
-
-bool position_is_within_board(std::array<int, 2> position) { return (position[0]); }
+bool position_is_within_board(Position position) {
+    //
+    return ((position.x >= 0) && (position.x <= 7) && (position.y >= 0) && (position.y <= 7));
+}
 
 /* Generic function for any piece */
-bool is_valid_move(std::array<std::array<int, 8>, 8> *pieces, Vector2 starting_position, Vector2 ending_position) {
-    int starting_piece = (*pieces)[starting_position.x][starting_position.y];
-    int ending_piece = (*pieces)[ending_position.x][ending_position.y];
+bool is_valid_primative_move(std::array<std::array<int, 8>, 8> *pieces, Position start_pos, Position end_pos) {
+    int starting_piece = (*pieces)[start_pos.x][start_pos.y];
+    int ending_piece = (*pieces)[end_pos.x][end_pos.y];
 
-    if (!(ending_position.x >= 0 && ending_position.x <= 7 && ending_position.y >= 0 && ending_position.y <= 7)) {
+    // No Pieces can move outside the board
+    if (!position_is_within_board(end_pos)) {
         return false;
     }
 
-    if (piece_color(starting_piece) == piece_color(ending_piece)) {
+    // If we are moving nothing, it's not valid
+    if (!starting_piece) {
         return false;
     }
-
+    // No 2 Pieces can occupy same position
+    if (starting_piece && ending_piece) {
+        if (piece_color(starting_piece) == piece_color(ending_piece)) {
+            return false;
+        }
+    }
     return true;
 }
 
-std::vector<std::array<int, 2>> get_knight_moves(std::array<std::array<int, 8>, 8> *pieces, int row, int column) {
-    std::vector<std::array<int, 2>> result;
+std::vector<Position> get_primative_knight_positions(std::array<std::array<int, 8>, 8> *pieces, int x, int y) {
+    std::vector<Position> result;
 
-    std::array<std::array<int, 2>, 8> candidates = {{
+    std::array<Position, 8> candidates = {{
         // top
-        {row - 2, column + 1},
-        {row - 1, column + 2},
-        {row + 1, column + 2},
-        {row + 2, column + 1},
+        {x - 2, y + 1},
+        {x - 1, y + 2},
+        {x + 1, y + 2},
+        {x + 2, y + 1},
         // bottom
-        {row - 2, column - 1},
-        {row - 1, column - 2},
-        {row + 1, column - 2},
-        {row + 2, column - 1},
+        {x - 2, y - 1},
+        {x - 1, y - 2},
+        {x + 1, y - 2},
+        {x + 2, y - 1},
     }};
-    for (const auto &[x, y] : candidates) {
-        if (is_valid_move(pieces, Vector2{(float)row, (float)column}, Vector2{(float)x, (float)y})) {
-            result.push_back({x, y});
+    for (const auto &[a, b] : candidates) {
+        if (is_valid_primative_move(pieces, Position{x, y}, Position{a, b})) {
+            result.push_back({a, b});
         };
     }
     return result;
 }
 
-std::vector<std::array<int, 2>> get_king_moves(std::array<std::array<int, 8>, 8> *pieces, int row, int column) {
-    std::vector<std::array<int, 2>> result;
+std::vector<Position> get_primative_king_positions(std::array<std::array<int, 8>, 8> *pieces, int x, int y) {
+    std::vector<Position> result;
 
-    std::array<std::array<int, 2>, 8> candidates = {{
+    std::array<Position, 8> candidates = {{
         // top
-        {row - 1, column + 1},
-        {row, column + 1},
-        {row + 1, column + 1},
+        {x - 1, y + 1},
+        {x, y + 1},
+        {x + 1, y + 1},
         //  >:3
-        {row - 1, column},
-        {row + 1, column},
-
-        // bottom
-        {row - 1, column - 1},
-        {row, column - 1},
-        {row + 1, column - 1},
+        {x - 1, y},
+        {x + 1, y},
+        // bottom (you)
+        {x - 1, y - 1},
+        {x, y - 1},
+        {x + 1, y - 1},
     }};
-    for (const auto &[x, y] : candidates) {
-        if (is_valid_move(pieces, Vector2{(float)row, (float)column}, Vector2{(float)x, (float)y})) {
-            result.push_back({x, y});
+    for (const auto &[a, b] : candidates) {
+        if (is_valid_primative_move(pieces, Position{x, y}, Position{a, b})) {
+            result.push_back({a, b});
         };
     }
 
@@ -395,83 +407,62 @@ std::vector<std::array<int, 2>> get_king_moves(std::array<std::array<int, 8>, 8>
     return result;
 }
 
-std::vector<std::array<int, 2>> get_pawn_moves(std::array<std::array<int, 8>, 8> *pieces, int row, int column) {
-    std::vector<std::array<int, 2>> result;
+std::vector<Position> get_primative_pawn_positions(std::array<std::array<int, 8>, 8> *pieces, int x, int y) {
+    std::vector<Position> result;
 
-    int piece = (*pieces)[row][column];
+    int piece = (*pieces)[x][y];
+    int color = piece_color(piece);
 
-    Vector2 inital_position = Vector2{(float)row, (float)column};
-    Vector2 possible_position;
+    Position inital_position = Position{x, y};
+    Position possible_position;
 
-    // If moving up one is a ___ position
-    possible_position = Vector2{(float)row, (float)forward(piece_color(piece), column, 1)};
-    if (is_valid_move(pieces, inital_position, possible_position)) {
-        // If theres nothing in front
+    // Not eating
+    possible_position = Position{x, forward(color, y, 1)};
+    if (is_valid_primative_move(pieces, inital_position, possible_position)) {
+        // If theres nobody 1 squares forward from me
         if ((*pieces)[possible_position.x][possible_position.y] == Piece::None) {
             // i can move up one
-            result.push_back({(int)possible_position.x, (int)possible_position.y});
+            result.push_back(possible_position);
 
             // additionally, if im on the second column
-            bool im_on_the_second_column = (piece_color(piece) == Piece::White && column == 6) || (piece_color(piece) == Piece::Black && column == 1);
+            bool im_on_the_second_column = (color == Piece::White && y == 6) || (color == Piece::Black && y == 1);
             if (im_on_the_second_column) {
-                // and theres nobody there
-                possible_position = Vector2{(float)row, (float)forward(piece_color(piece), column, 2)};
-                if (is_valid_move(pieces, inital_position, possible_position)) {
+                possible_position = Position{x, forward(color, y, 2)};
+                if (is_valid_primative_move(pieces, inital_position, possible_position)) {
+                    // and theres nobody 2 squares forward from me
                     if ((*pieces)[possible_position.x][possible_position.y] == Piece::None) {
                         // i can move up two
-                        result.push_back({(int)possible_position.x, (int)possible_position.y});
+                        result.push_back(possible_position);
                     }
                 }
             }
         }
     }
 
-    // auto rc = transpose(pieces, {(float)row, (float)column}, 0, 1);
-    // auto t = (*pieces)[rc.x][rc.y];
-    // ;
-    // if (!t) {
-    //     result.push_back({(int)rc.x, (int)rc.y});
-    // }
-
-    // If theres nothing in front, and if it's on the second file, it can move 2 square forward
-    //
-    // if (is_valid_move(pieces, inital_position, possible_position)) {
-    //     if ((*pieces)[possible_position.x][possible_position.y] == Piece::None) {
-    //         possible_position = Vector2{(float)row, (float)forward(piece_color(piece), column, 2)};
-    //     }
-    // }
-    // if (is_valid_move(pieces, inital_position, possible_position)) {
-    //     if ((*pieces)[possible_position.x][possible_position.y] == Piece::None) {
-    //         result.push_back({(int)possible_position.x, (int)possible_position.y});
-    //     }
-    // }
-
-    // if (nobody_in_front && possible_position_is_valid && im_on_the_second_column) {
-    //     result.push_back({(int)row, (int)forward(piece_color(piece), column, 2)});
-    // }
-
-    // If theres a piece of the opposite color on the top left/right, it can eat it
-    bool can_move_to_tl = is_valid_move(pieces, {(float)row, (float)column}, {(float)(row - 1), (float)forward(piece_color(piece), column, 1)}) && (*pieces)[row - 1][(float)forward(piece_color(piece), column, 1)];
-    if (can_move_to_tl) {
-        bool tl_has_opposite_color = piece_color(piece) != piece_color((*pieces)[row - 1][forward(piece_color(piece), column, 1)]);
-        if (tl_has_opposite_color) {
-            result.push_back({(int)row - 1, (int)forward(piece_color(piece), column, 1)});
+    // Eating
+    possible_position = Position{x - 1, forward(color, y, 1)};  // top left
+    if (is_valid_primative_move(pieces, inital_position, possible_position)) {
+        // If theres a piece in top left of me
+        auto top_left_piece = (*pieces)[possible_position.x][possible_position.y];
+        if (top_left_piece) {
+            // If the piece in front has opposite color of me
+            if (color != piece_color(top_left_piece)) {
+                // i can eat it
+                result.push_back(possible_position);
+            }
         }
     }
-    //
-    //
-    // auto rctl = transpose(pieces, {(float)row, (float)column}, -1, 1);
-    // auto tl = (*pieces)[rctl.x][rctl.y];
-    // if (tl) {
-    //     if (piece_color(piece) != piece_color(tl)) {
-    //         result.push_back({(int)rctl.x, (int)rctl.y});
-    //     }
-    // }
-    auto rctr = transpose(pieces, {(float)row, (float)column}, 1, 1);
-    auto tr = (*pieces)[rctr.x][rctr.y];
-    if (tr) {
-        if (piece_color(piece) != piece_color(tr)) {
-            result.push_back({(int)rctr.x, (int)rctr.y});
+
+    possible_position = Position{x + 1, forward(color, y, 1)};  // top right
+    if (is_valid_primative_move(pieces, inital_position, possible_position)) {
+        // If theres a piece in top left of me
+        auto top_left_piece = (*pieces)[possible_position.x][possible_position.y];
+        if (top_left_piece) {
+            // If the piece in front has opposite color of me
+            if (color != piece_color(top_left_piece)) {
+                // i can eat it
+                result.push_back(possible_position);
+            }
         }
     }
 
@@ -480,131 +471,126 @@ std::vector<std::array<int, 2>> get_pawn_moves(std::array<std::array<int, 8>, 8>
     return result;
 }
 
-std::vector<std::array<int, 2>> get_primative_moves(std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column) {
-    std::vector<std::array<int, 2>> result;
+std::vector<Position> get_primative_positions(std::array<std::array<int, 8>, 8> *pieces, int x, int y) {
+    std::vector<Position> result;
 
-    int starting_piece = (*pieces)[starting_row][starting_column];
+    int starting_piece = (*pieces)[x][y];
 
-    std::vector<Direction> d;
+    std::vector<Direction> directions;
     switch (piece_type(starting_piece)) {
         // case Piece::Pawn:
         // case Piece::Knight:
         case (Piece::Bishop):
-            d = Directions::Bishop;
+            directions = Directions::Bishop;
             break;
         case (Piece::Rook):
-            d = Directions::Rook;
+            directions = Directions::Rook;
             break;
         case (Piece::Queen):
-            d = Directions::Queen;
+            directions = Directions::Queen;
             break;
             // case Piece::King:
     }
-    if (!d.empty()) {
-        auto destinations = get_squares_in_directions(pieces, starting_row, starting_column, d);
-        result.insert(result.end(), destinations.begin(), destinations.end());
+    if (!directions.empty()) {
+        auto positions = get_positions_in_directions(pieces, Position{x, y}, directions);
+        result.insert(result.end(), positions.begin(), positions.end());
         return result;
     }
 
     if (piece_type(starting_piece) == Piece::Pawn) {
-        auto moves = get_pawn_moves(pieces, starting_row, starting_column);
-        result.insert(result.end(), moves.begin(), moves.end());
+        auto positions = get_primative_pawn_positions(pieces, x, y);
+        result.insert(result.end(), positions.begin(), positions.end());
     } else if (piece_type(starting_piece) == Piece::Knight) {
-        auto moves = get_knight_moves(pieces, starting_row, starting_column);
-        result.insert(result.end(), moves.begin(), moves.end());
+        auto positions = get_primative_knight_positions(pieces, x, y);
+        result.insert(result.end(), positions.begin(), positions.end());
     } else if (piece_type(starting_piece) == Piece::King) {
-        auto moves = get_king_moves(pieces, starting_row, starting_column);
-        result.insert(result.end(), moves.begin(), moves.end());
+        auto positions = get_primative_king_positions(pieces, x, y);
+        result.insert(result.end(), positions.begin(), positions.end());
     }
 
     // debug(std::format("finaly result {}", result));
     return result;
 }
 
-std::vector<std::array<int, 2>> get_attacking_moves(std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column) {
+std::vector<Position> get_attacking_positions(std::array<std::array<int, 8>, 8> *pieces, int x, int y) {
     // TODO: pawn moving forward is primative but not attacking
-    return get_primative_moves(pieces, starting_row, starting_column);
+    return get_primative_positions(pieces, x, y);
 }
 
-bool is_under_attack(int color, std::array<std::array<int, 8>, 8> *pieces) {
-    std::vector<std::array<int, 2>> all_attacking_squares;
+std::vector<Position> get_all_attacking_positions(int color, std::array<std::array<int, 8>, 8> *pieces) {
+    std::vector<Position> result;
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
             int piece = (*pieces)[x][y];
             if (piece) {
-                if (piece_color(piece) != color) {
-                    auto moves = get_primative_moves(pieces, x, y);
-                    if (piece_type(piece) == Piece::Pawn) {
-                        // TODO: what if you erase(null?)
-                        // if (is_valid_move(pieces, {(float)x, (float)y}, {(float)x, (float)forward(pieces, y, 1)})) {
-                        //     std::array<int, 2> a = {x, forward(pieces, y, 1)};
-                        //
-                        //     moves.erase(std::find(moves.begin(), moves.end(), a));
-                        // }
-                        // std::array<int, 2> b = {x, forward(pieces, y, 2)};
-                        // moves.erase(std::find(moves.begin(), moves.end(), b));
-                    }
-                    all_attacking_squares.insert(all_attacking_squares.end(), moves.begin(), moves.end());
+                if (piece_color(piece) == color) {
+                    auto attacking_positions = get_attacking_positions(pieces, x, y);
+                    result.insert(result.end(), attacking_positions.begin(), attacking_positions.end());
                 }
             }
         }
     }
 
-    debug(std::format("000000"));
-    for (auto &[x, y] : all_attacking_squares) {
-        debug(std::format("attacking positions {} {}", x, y));
-        if (piece_type((*pieces)[x][y]) == Piece::King && (piece_color((*pieces)[x][y]) == color)) {
+    return result;
+}
+
+bool is_under_attack(int color, std::array<std::array<int, 8>, 8> *pieces) {
+    std::vector<Position> all_attacking_positions;
+
+    if (color == Piece::Black) {
+        // debug(std::format("IM BLACK"));
+        all_attacking_positions = get_all_attacking_positions(Piece::White, pieces);
+    } else {
+        // debug(std::format("IM WHITE"));
+        all_attacking_positions = get_all_attacking_positions(Piece::Black, pieces);
+    }
+
+    // debug(std::format("000000"));
+    for (auto &[a, b] : all_attacking_positions) {
+        // debug(std::format("attacking positions {} {}", x, y));
+        if (piece_type((*pieces)[a][b]) == Piece::King && (piece_color((*pieces)[a][b]) == color)) {
             return true;
         }
     }
     return false;
 };
 
-void move_piece(std::array<std::array<int, 8>, 8> *pieces, int i_row, int i_col, int f_row, int f_col) {
-    (*pieces)[f_row][f_col] = (*pieces)[i_row][i_col];
-    if ((i_row != f_row) || (i_col != f_col)) {
-        (*pieces)[i_row][i_col] = Piece::None;
+void move_piece(std::array<std::array<int, 8>, 8> *pieces, Position initial, Position final) {
+    (*pieces)[final.x][final.y] = (*pieces)[initial.x][initial.y];
+    if (initial != final) {
+        (*pieces)[initial.x][initial.y] = Piece::None;
     }
 }
 
-std::vector<std::array<int, 2>> get_valid_moves(std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column) {
+std::vector<Position> get_valid_positions(std::array<std::array<int, 8>, 8> *pieces, int x, int y) {
     //
-    std::vector<std::array<int, 2>> result;
-    auto primative_moves = get_primative_moves(pieces, starting_row, starting_column);
-    for (auto &[x, y] : primative_moves) {
-        auto cloned_pieces = (*pieces);                                   // cloned_pieces contains a clone of pieces
-        move_piece(&cloned_pieces, starting_row, starting_column, x, y);  // thats why we can modify without affecting our real board
+    std::vector<Position> result;
+
+    auto primative_positions = get_primative_positions(pieces, x, y);
+    for (auto &[a, b] : primative_positions) {
+        auto cloned_pieces = (*pieces);              // cloned_pieces contains a clone of pieces
+        move_piece(&cloned_pieces, {x, y}, {a, b});  // thats why we can modify without affecting our real board
 
         // If i make this move and im not under attack after moving, then im safe to do so
-        if (!is_under_attack(piece_color((*pieces)[starting_row][starting_column]), &cloned_pieces)) {
-            result.push_back({x, y});
+        if (!is_under_attack(piece_color((*pieces)[x][y]), &cloned_pieces)) {
+            // white to move
+            if (player.number_of_moves % 2 == 0) {
+                if (piece_color((*pieces)[x][y]) == Piece::White) {
+                    result.push_back({a, b});
+                }
+
+            } else {  // black to move
+                if (piece_color((*pieces)[x][y]) == Piece::Black) {
+                    result.push_back({a, b});
+                }
+            }
+            // result.push_back({a, b});
         }
     }
     return result;
 }
 
-void update_squares(std::array<std::array<int, 8>, 8> *squares) {
-    // TODO:
-    //
-    // Vector2 mouse_position = GetMousePosition();
-    // Rectangle board_rect = Rectangle{0, 0, Constants::SQUARE_LENGTH * 8, Constants::SQUARE_LENGTH * 8};
-    // if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-    //     if (within_rectangle(mouse_position, board_rect)) {
-    //         Vector2 a = row_col_from_mouse_position(mouse_position);
-    //
-    //         debug(std::format("bf: {}", (*squares)[a.x][a.y]));
-    //
-    //         (*squares)[a.x][a.y] ^= Square::Selected;
-    //         // if (has_flag((*squares)[a.x][a.y], Square::Selected)) {
-    //         //     (*squares)[a.x][a.y] &= ~Square::Selected;
-    //         // } else {
-    //         //     (*squares)[a.x][a.y] |= Square::Selected;
-    //         // }
-    //
-    //         debug(std::format("af: {}", (*squares)[a.x][a.y]));
-    //     }
-    // }
-}
+void update_squares(std::array<std::array<int, 8>, 8> *squares) {}
 
 void update_pieces(std::array<std::array<int, 8>, 8> *pieces) {}
 
@@ -617,56 +603,48 @@ void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::ar
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if (within_rectangle(mouse_position, board_rect)) {
             pressed_mouse_pos = mouse_position;
-            Vector2 inital_row_col = row_col_from_mouse_position(mouse_position);
+            Position initial_position = position_from_mouse_position(mouse_position);
             // debug(std::format("{}, {}", inital_row_col.x, inital_row_col.y));
+            auto valid_positions = get_valid_positions(pieces, initial_position.x, initial_position.y);
 
-            auto valid_moves = get_valid_moves(pieces, inital_row_col.x, inital_row_col.y);
+            (*squares)[initial_position.x][initial_position.y] ^= Square::Selected;
 
-            (*squares)[inital_row_col.x][inital_row_col.y] ^= Square::Selected;
-
-            for (auto &[r, c] : valid_moves) {
-                (*squares)[r][c] ^= Square::Indicator;
+            for (auto &[a, b] : valid_positions) {
+                (*squares)[a][b] ^= Square::Indicator;
             }
         }
     }
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && pressed_mouse_pos.x) {
-        Vector2 inital_row_col = row_col_from_mouse_position(pressed_mouse_pos);
+        Position initial_position = position_from_mouse_position(pressed_mouse_pos);
+        auto valid_positions = get_valid_positions(pieces, initial_position.x, initial_position.y);
 
-        auto valid_moves = get_valid_moves(pieces, inital_row_col.x, inital_row_col.y);
-
-        (*squares)[inital_row_col.x][inital_row_col.y] ^= Square::Selected;
-        for (auto &[r, c] : valid_moves) {
-            (*squares)[r][c] ^= Square::Indicator;
+        (*squares)[initial_position.x][initial_position.y] ^= Square::Selected;
+        for (auto &[a, b] : valid_positions) {
+            (*squares)[a][b] ^= Square::Indicator;
         }
 
         if (within_rectangle(mouse_position, board_rect)) {
-            Vector2 final_row_col = row_col_from_mouse_position(mouse_position);
-
-            std::array<int, 2> y = {(int)final_row_col.x, (int)final_row_col.y};
-
-            if (std::find(valid_moves.begin(), valid_moves.end(), y) != valid_moves.end()) {
-                move_piece(pieces, inital_row_col.x, inital_row_col.y, final_row_col.x, final_row_col.y);
+            Position final_position = position_from_mouse_position(mouse_position);
+            Position temp = Position{final_position.x, final_position.y};
+            if (std::find(valid_positions.begin(), valid_positions.end(), temp) != valid_positions.end()) {
+                move_piece(pieces, initial_position, final_position);
+                player.number_of_moves++;
             }
         }
-
         pressed_mouse_pos = {0, 0};
     }
 }
 
 void draw_piece_texture(Texture2D piece_texture, Rectangle dest_rect) {}
-// void draw_piece_texture(Texture2D piece_texture) {
-//     Rectangle dest_rect = rectangle_from_row_column(row, column);
-//     DrawTexturePro(piece_texture, Rectangle{0, 0, (float)piece_texture.width, (float)piece_texture.height}, dest_rect, Vector2{0, 0}, 0, RAYWHITE);
-// }
-void draw_piece_texture(Texture2D piece_texture, int row, int column) {
-    Rectangle dest_rect = rectangle_from_row_column(row, column);
+void draw_piece_texture(Texture2D piece_texture, int x, int y) {
+    Rectangle dest_rect = rectangle_from_x_y(x, y);
     DrawTexturePro(piece_texture, Rectangle{0, 0, (float)piece_texture.width, (float)piece_texture.height}, dest_rect, Vector2{0, 0}, 0, RAYWHITE);
 }
 
 void draw_pieces(std::array<std::array<int, 8>, 8> *pieces, std::vector<std::tuple<int, Texture2D>> *piece_textures) {
     for (int row = 0; row < 8; row++) {
         for (int column = 0; column < 8; column++) {
-            Rectangle dest_rect = rectangle_from_row_column(row, column);
+            Rectangle dest_rect = rectangle_from_x_y(row, column);
 
             Texture2D piece_texture;
             bool found = false;
@@ -687,7 +665,7 @@ void draw_pieces(std::array<std::array<int, 8>, 8> *pieces, std::vector<std::tup
 void draw_squares(std::array<std::array<int, 8>, 8> *squares) {
     for (int row = 0; row < 8; row++) {
         for (int column = 0; column < 8; column++) {
-            auto rect = rectangle_from_row_column(row, column);
+            auto rect = rectangle_from_x_y(row, column);
             int current_square = (*squares)[row][column];
             if (square_color(current_square) == Square::Dark) {
                 DrawRectangle(rect.x, rect.y, rect.width, rect.height, Constants::SQUARE_DARK);
@@ -777,6 +755,7 @@ int main(void) {
         // update_pieces(&pieces);
         update_board(&squares, &pieces);
 
+        debug(std::format("NOM {}", player.number_of_moves));
         // Draw
         //----------------------------------------------------------------------------------
         BeginDrawing();
