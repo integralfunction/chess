@@ -653,7 +653,7 @@ void update_pieces(std::array<std::array<int, 8>, 8> *pieces) {}
 // }
 
 Vector2 prev_mouse_pos = {0, 0};
-bool should_draw_squares_now = false;
+// bool should_draw_squares_now = false;
 
 void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::array<int, 8>, 8> *pieces) {
     Vector2 mouse_position = GetMousePosition();
