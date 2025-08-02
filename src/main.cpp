@@ -69,7 +69,7 @@ class Player {
     };
 };
 
-Player player = Player(Piece::Black);
+Player player = Player(Piece::White);
 
 void debug(std::string s) { TraceLog(LOG_INFO, s.c_str()); }
 
@@ -83,6 +83,18 @@ int square_color(int a) { return a & 0b11000; }
 
 bool square_is_selected(int a) { return (a & Square::Selected) == Square::Selected; }
 bool square_is_indicator(int a) { return (a & Square::Indicator) == Square::Indicator; }
+
+int opposite_color(int color) {
+    switch (color) {
+        case Piece::Black:
+            return Piece::White;
+            break;
+        case Piece::White:
+            return Piece::Black;
+            break;
+    }
+    return 0;
+}
 
 bool within_rectangle(Vector2 mouse_position, Rectangle r) {
     //
@@ -124,30 +136,35 @@ Position position_from_mouse_position(Vector2 mouse_position) {
 // }
 
 // TODO: pick one of them
-Vector2 transpose(std::array<std::array<int, 8>, 8> *pieces, Vector2 initial_position, int drow, int dcol) {
-    int piece = (*pieces)[initial_position.x][initial_position.y];
-    Vector2 final;
-
-    switch (piece_color(piece)) {
-        case Piece::Black:
-            final = {initial_position.x + drow, initial_position.y + dcol};
-            break;
-        case Piece::White:
-            final = {initial_position.x + drow, initial_position.y - dcol};
-            break;
-    }
-    return final;
-}
+// Vector2 transpose(std::array<std::array<int, 8>, 8> *pieces, Vector2 initial_position, int drow, int dcol) {
+//     int piece = (*pieces)[initial_position.x][initial_position.y];
+//     Vector2 final;
+//
+//     switch (piece_color(piece)) {
+//         case Piece::Black:
+//             final = {initial_position.x + drow, initial_position.y + dcol};
+//             break;
+//         case Piece::White:
+//             final = {initial_position.x + drow, initial_position.y - dcol};
+//             break;
+//     }
+//     return final;
+// }
 
 int forward(int color, int col, int dcol) {
-    switch (color) {
-        case Piece::Black:
-            return col + dcol;
-            break;
-        case Piece::White:
-            return col - dcol;
-            break;
+    if (color == player.color) {
+        return col + dcol;
+    } else {
+        return col - dcol;
     }
+    // switch (color) {
+    //     case Piece::Black:
+    //         return col + dcol;
+    //         break;
+    //     case Piece::White:
+    //         return col - dcol;
+    //         break;
+    // }
     return 0;
 }
 
@@ -425,8 +442,7 @@ std::vector<Position> get_primative_pawn_positions(std::array<std::array<int, 8>
             result.push_back(possible_position);
 
             // additionally, if im on the second column
-            bool im_on_the_second_column = (color == Piece::White && y == 6) || (color == Piece::Black && y == 1);
-            if (im_on_the_second_column) {
+            if ((y == 1 && color == player.color) || (y == 6 && color == opposite_color(player.color))) {
                 possible_position = Position{x, forward(color, y, 2)};
                 if (is_valid_primative_move(pieces, inital_position, possible_position)) {
                     // and theres nobody 2 squares forward from me
@@ -537,13 +553,14 @@ std::vector<Position> get_all_attacking_positions(int color, std::array<std::arr
 bool is_under_attack(int color, std::array<std::array<int, 8>, 8> *pieces) {
     std::vector<Position> all_attacking_positions;
 
-    if (color == Piece::Black) {
-        // debug(std::format("IM BLACK"));
-        all_attacking_positions = get_all_attacking_positions(Piece::White, pieces);
-    } else {
-        // debug(std::format("IM WHITE"));
-        all_attacking_positions = get_all_attacking_positions(Piece::Black, pieces);
-    }
+    // if (color == Piece::Black) {
+    //     // debug(std::format("IM BLACK"));
+    //     all_attacking_positions = get_all_attacking_positions(Piece::White, pieces);
+    // } else {
+    //     // debug(std::format("IM WHITE"));
+    //     all_attacking_positions = get_all_attacking_positions(Piece::Black, pieces);
+    // }
+    all_attacking_positions = get_all_attacking_positions(opposite_color(color), pieces);
 
     // debug(std::format("000000"));
     for (auto &[a, b] : all_attacking_positions) {
@@ -648,9 +665,12 @@ void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::ar
                 Position prev_position = position_from_mouse_position(prev_mouse_pos);
 
                 auto prev_valid_positions = get_valid_positions(pieces, prev_position.x, prev_position.y);
-                (*squares)[prev_position.x][prev_position.y] ^= Square::Selected;
-                for (auto &[a, b] : prev_valid_positions) {
-                    (*squares)[a][b] ^= Square::Indicator;
+
+                if ((*pieces)[prev_position.x][prev_position.y]) {
+                    (*squares)[prev_position.x][prev_position.y] ^= Square::Selected;
+                    for (auto &[a, b] : prev_valid_positions) {
+                        (*squares)[a][b] ^= Square::Indicator;
+                    }
                 }
 
                 Position current_position = position_from_mouse_position(mouse_position);
@@ -660,10 +680,12 @@ void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::ar
                     Position current_position = position_from_mouse_position(mouse_position);
                     auto current_valid_positions = get_valid_positions(pieces, current_position.x, current_position.y);
 
-                    (*squares)[current_position.x][current_position.y] ^= Square::Selected;
-                    for (auto &[a, b] : current_valid_positions) {
-                        // debug(std::format("{} {}", a, b));
-                        (*squares)[a][b] ^= Square::Indicator;
+                    if ((*pieces)[current_position.x][current_position.y]) {
+                        (*squares)[current_position.x][current_position.y] ^= Square::Selected;
+                        for (auto &[a, b] : current_valid_positions) {
+                            // debug(std::format("{} {}", a, b));
+                            (*squares)[a][b] ^= Square::Indicator;
+                        }
                     }
                 } else {
                     if (!prev_valid_positions.empty()) {
@@ -680,12 +702,14 @@ void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::ar
                 prev_mouse_pos = mouse_position;
 
                 Position current_position = position_from_mouse_position(mouse_position);
-                auto current_valid_positions = get_valid_positions(pieces, current_position.x, current_position.y);
+                if ((*pieces)[current_position.x][current_position.y]) {
+                    auto current_valid_positions = get_valid_positions(pieces, current_position.x, current_position.y);
 
-                (*squares)[current_position.x][current_position.y] ^= Square::Selected;
-                for (auto &[a, b] : current_valid_positions) {
-                    // debug(std::format("{} {}", a, b));
-                    (*squares)[a][b] ^= Square::Indicator;
+                    (*squares)[current_position.x][current_position.y] ^= Square::Selected;
+                    for (auto &[a, b] : current_valid_positions) {
+                        // debug(std::format("{} {}", a, b));
+                        (*squares)[a][b] ^= Square::Indicator;
+                    }
                 }
             }
         }
@@ -742,23 +766,57 @@ void draw_squares(std::array<std::array<int, 8>, 8> *squares) {
         }
     }
 }
+
+std::array<std::array<int, 8>, 8> init_pieces(int color) {
+    std::array<std::array<int, 8>, 8> pieces;
+    for (int x = 0; x < 8; x++) {
+        for (int y = 0; y < 8; y++) {
+            pieces[x][y] = 0;
+        }
+    }
+    // Load Pawns //
+    for (int x = 0; x < 8; x++) {
+        pieces[x][1] = player.color | Piece::Pawn;
+        pieces[x][6] = opposite_color(player.color) | Piece::Pawn;
+    }
+    // my pieces //
+    pieces[0][0] = player.color | Piece::Rook;
+    pieces[1][0] = player.color | Piece::Knight;
+    pieces[2][0] = player.color | Piece::Bishop;
+    pieces[3][0] = player.color | Piece::Queen;
+    pieces[4][0] = player.color | Piece::King;
+    pieces[5][0] = player.color | Piece::Bishop;
+    pieces[6][0] = player.color | Piece::Knight;
+    pieces[7][0] = player.color | Piece::Rook;
+
+    // opponents pieces //
+    pieces[0][7] = opposite_color(player.color) | Piece::Rook;
+    pieces[1][7] = opposite_color(player.color) | Piece::Knight;
+    pieces[2][7] = opposite_color(player.color) | Piece::Bishop;
+    pieces[3][7] = opposite_color(player.color) | Piece::Queen;
+    pieces[4][7] = opposite_color(player.color) | Piece::King;
+    pieces[5][7] = opposite_color(player.color) | Piece::Bishop;
+    pieces[6][7] = opposite_color(player.color) | Piece::Knight;
+    pieces[7][7] = opposite_color(player.color) | Piece::Rook;
+
+    return pieces;
+}
+
 int main(void) {
     // Initialization
     //--------------------------------------------------------------------------------------
     const int screenWidth = Constants::SQUARE_LENGTH * 8;
     const int screenHeight = Constants::SQUARE_LENGTH * 8;
 
-    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+    InitWindow(screenWidth, screenHeight, "chess");
+    // SetTargetFPS(60);
 
-    SetTargetFPS(60);
+    std::array<std::array<int, 8>, 8> pieces = init_pieces(player.color);
 
-    std::array<std::array<int, 8>, 8> pieces;
-
+    // Squares are drawn the same regardless of what piece_color the player is playing;
     std::array<std::array<int, 8>, 8> squares;
     for (int row = 0; row < 8; row++) {
         for (int column = 0; column < 8; column++) {
-            pieces[row][column] = 0;
-
             if ((row + column) % 2 == 0) {
                 squares[row][column] = Square::Light;
             } else {
@@ -766,32 +824,6 @@ int main(void) {
             }
         }
     }
-
-    // Load Dark Pieces //
-    for (int row = 0; row < 8; row++) {
-        pieces[row][1] = Piece::Black | Piece::Pawn;
-    }
-    pieces[0][0] = Piece::Black | Piece::Rook;
-    pieces[1][0] = Piece::Black | Piece::Knight;
-    pieces[2][0] = Piece::Black | Piece::Bishop;
-    pieces[3][0] = Piece::Black | Piece::Queen;
-    pieces[4][0] = Piece::Black | Piece::King;
-    pieces[5][0] = Piece::Black | Piece::Bishop;
-    pieces[6][0] = Piece::Black | Piece::Knight;
-    pieces[7][0] = Piece::Black | Piece::Rook;
-
-    // Load White Pieces //
-    for (int x = 0; x < 8; x++) {
-        pieces[x][6] = Piece::White | Piece::Pawn;
-    }
-    pieces[0][7] = Piece::White | Piece::Rook;
-    pieces[1][7] = Piece::White | Piece::Knight;
-    pieces[2][7] = Piece::White | Piece::Bishop;
-    pieces[3][7] = Piece::White | Piece::Queen;
-    pieces[4][7] = Piece::White | Piece::King;
-    pieces[5][7] = Piece::White | Piece::Bishop;
-    pieces[6][7] = Piece::White | Piece::Knight;
-    pieces[7][7] = Piece::White | Piece::Rook;
 
     // Load textures
     std::vector<std::tuple<int, Texture2D>> piece_textures = load_textures(&pieces);
@@ -824,6 +856,35 @@ int main(void) {
 
         draw_squares(&squares);
         draw_pieces(&pieces, &piece_textures);
+
+        // DrawRectangle(0, 0, 100, 48, BLACK);
+        // DrawText(std::format("{}", GetFPS()).c_str(), 0, 0, 24, RED);
+
+        bool white_cant_move_anywhere = true;
+        bool black_cant_move_anywhere = true;
+        for (int x = 0; x < 8; x++) {
+            for (int y = 0; y < 8; y++) {
+                int piece = (pieces)[x][y];
+                if (piece) {
+                    if (!get_valid_positions(&pieces, x, y).empty() && piece_color(piece) == Piece::White) {
+                        white_cant_move_anywhere = false;
+                    }
+                    if (!get_valid_positions(&pieces, x, y).empty() && piece_color(piece) == Piece::Black) {
+                        black_cant_move_anywhere = false;
+                    }
+                }
+            }
+        }
+        if (white_cant_move_anywhere && is_under_attack(Piece::White, &pieces)) {
+            auto measurements = MeasureText("White is checkmated", 24);
+            DrawRectangle((screenWidth - measurements) / 2.0 - (0.5f * 24.0), (screenHeight / 2.0) - (0.3f * 48), measurements + 24.0, 48, BLACK);
+            DrawText("White is checkmated", (screenWidth - measurements) / 2.0, screenHeight / 2.0, 24, WHITE);
+        }
+        if (white_cant_move_anywhere && is_under_attack(Piece::Black, &pieces)) {
+            auto measurements = MeasureText("Black is checkmated", 24);
+            DrawRectangle((screenWidth - measurements) / 2.0 - (0.5f * 24.0), (screenHeight / 2.0) - (0.3f * 48), measurements + 24.0, 48, BLACK);
+            DrawText("Black is checkmated", (screenWidth - measurements) / 2.0, screenHeight / 2.0, 24, WHITE);
+        }
 
         EndDrawing();
 
