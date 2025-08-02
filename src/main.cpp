@@ -594,7 +594,49 @@ void update_squares(std::array<std::array<int, 8>, 8> *squares) {}
 
 void update_pieces(std::array<std::array<int, 8>, 8> *pieces) {}
 
-Vector2 pressed_mouse_pos = {0, 0};
+// Vector2 pressed_mouse_pos = {0, 0};
+
+// void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::array<int, 8>, 8> *pieces) {
+//     Vector2 mouse_position = GetMousePosition();
+//     Rectangle board_rect = Rectangle{0, 0, Constants::SQUARE_LENGTH * 8, Constants::SQUARE_LENGTH * 8};
+//
+//     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+//         if (within_rectangle(mouse_position, board_rect)) {
+//             pressed_mouse_pos = mouse_position;
+//             Position initial_position = position_from_mouse_position(mouse_position);
+//             // debug(std::format("{}, {}", inital_row_col.x, inital_row_col.y));
+//             auto valid_positions = get_valid_positions(pieces, initial_position.x, initial_position.y);
+//
+//             (*squares)[initial_position.x][initial_position.y] ^= Square::Selected;
+//
+//             for (auto &[a, b] : valid_positions) {
+//                 (*squares)[a][b] ^= Square::Indicator;
+//             }
+//         }
+//     }
+//     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && pressed_mouse_pos.x) {
+//         Position initial_position = position_from_mouse_position(pressed_mouse_pos);
+//         auto valid_positions = get_valid_positions(pieces, initial_position.x, initial_position.y);
+//
+//         (*squares)[initial_position.x][initial_position.y] ^= Square::Selected;
+//         for (auto &[a, b] : valid_positions) {
+//             (*squares)[a][b] ^= Square::Indicator;
+//         }
+//
+//         if (within_rectangle(mouse_position, board_rect)) {
+//             Position final_position = position_from_mouse_position(mouse_position);
+//             Position temp = Position{final_position.x, final_position.y};
+//             if (std::find(valid_positions.begin(), valid_positions.end(), temp) != valid_positions.end()) {
+//                 move_piece(pieces, initial_position, final_position);
+//                 player.number_of_moves++;
+//             }
+//         }
+//         pressed_mouse_pos = {0, 0};
+//     }
+// }
+
+Vector2 prev_mouse_pos = {0, 0};
+bool should_draw_squares_now = false;
 
 void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::array<int, 8>, 8> *pieces) {
     Vector2 mouse_position = GetMousePosition();
@@ -602,36 +644,51 @@ void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::ar
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if (within_rectangle(mouse_position, board_rect)) {
-            pressed_mouse_pos = mouse_position;
-            Position initial_position = position_from_mouse_position(mouse_position);
-            // debug(std::format("{}, {}", inital_row_col.x, inital_row_col.y));
-            auto valid_positions = get_valid_positions(pieces, initial_position.x, initial_position.y);
+            if (prev_mouse_pos.x) {
+                Position prev_position = position_from_mouse_position(prev_mouse_pos);
 
-            (*squares)[initial_position.x][initial_position.y] ^= Square::Selected;
+                auto prev_valid_positions = get_valid_positions(pieces, prev_position.x, prev_position.y);
+                (*squares)[prev_position.x][prev_position.y] ^= Square::Selected;
+                for (auto &[a, b] : prev_valid_positions) {
+                    (*squares)[a][b] ^= Square::Indicator;
+                }
 
-            for (auto &[a, b] : valid_positions) {
-                (*squares)[a][b] ^= Square::Indicator;
+                Position current_position = position_from_mouse_position(mouse_position);
+                if (piece_color((*pieces)[current_position.x][current_position.y]) == piece_color((*pieces)[prev_position.x][prev_position.y]) && (current_position.x != prev_position.x || current_position.y != prev_position.y)) {
+                    prev_mouse_pos = mouse_position;
+
+                    Position current_position = position_from_mouse_position(mouse_position);
+                    auto current_valid_positions = get_valid_positions(pieces, current_position.x, current_position.y);
+
+                    (*squares)[current_position.x][current_position.y] ^= Square::Selected;
+                    for (auto &[a, b] : current_valid_positions) {
+                        // debug(std::format("{} {}", a, b));
+                        (*squares)[a][b] ^= Square::Indicator;
+                    }
+                } else {
+                    if (!prev_valid_positions.empty()) {
+                        if (std::find(prev_valid_positions.begin(), prev_valid_positions.end(), current_position) != prev_valid_positions.end()) {
+                            move_piece(pieces, prev_position, current_position);
+                            player.number_of_moves++;
+                        }
+                    }
+
+                    prev_mouse_pos = {0, 0};
+                }
+
+            } else {
+                prev_mouse_pos = mouse_position;
+
+                Position current_position = position_from_mouse_position(mouse_position);
+                auto current_valid_positions = get_valid_positions(pieces, current_position.x, current_position.y);
+
+                (*squares)[current_position.x][current_position.y] ^= Square::Selected;
+                for (auto &[a, b] : current_valid_positions) {
+                    // debug(std::format("{} {}", a, b));
+                    (*squares)[a][b] ^= Square::Indicator;
+                }
             }
         }
-    }
-    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && pressed_mouse_pos.x) {
-        Position initial_position = position_from_mouse_position(pressed_mouse_pos);
-        auto valid_positions = get_valid_positions(pieces, initial_position.x, initial_position.y);
-
-        (*squares)[initial_position.x][initial_position.y] ^= Square::Selected;
-        for (auto &[a, b] : valid_positions) {
-            (*squares)[a][b] ^= Square::Indicator;
-        }
-
-        if (within_rectangle(mouse_position, board_rect)) {
-            Position final_position = position_from_mouse_position(mouse_position);
-            Position temp = Position{final_position.x, final_position.y};
-            if (std::find(valid_positions.begin(), valid_positions.end(), temp) != valid_positions.end()) {
-                move_piece(pieces, initial_position, final_position);
-                player.number_of_moves++;
-            }
-        }
-        pressed_mouse_pos = {0, 0};
     }
 }
 
@@ -755,7 +812,7 @@ int main(void) {
         // update_pieces(&pieces);
         update_board(&squares, &pieces);
 
-        debug(std::format("NOM {}", player.number_of_moves));
+        // debug(std::format("NOM {}", player.number_of_moves));
         // Draw
         //----------------------------------------------------------------------------------
         BeginDrawing();
