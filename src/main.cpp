@@ -49,28 +49,20 @@ struct Square {
     static const int Light = 0b10000;     // 16
 };
 
-// struct Player {
-//     static const int Dark = 0b01000;   // 8
-//     static const int Light = 0b10000;  // 16
-//                                        //
-//     const int color;
-//     const int homeRow;
-// };
+class Player {
+   public:
+    const int color;
+    int homeColumn;
+    Player(int clr) : color(clr) {
+        if (clr == Piece::Black) {
+            homeColumn = 1;
+        } else {
+            homeColumn = 6;
+        }
+    };
+};
 
-// class Player {
-//    public:
-//     const int color;
-//     int homeColumn;
-//     Player(int clr) : color(clr) {
-//         if (clr == Piece::Black) {
-//             homeColumn = 1;
-//         } else {
-//             homeColumn = 6;
-//         }
-//     };
-// };
-//
-// Player player = Player(Piece::Black);
+Player player = Player(Piece::Black);
 
 void debug(std::string s) { TraceLog(LOG_INFO, s.c_str()); }
 
@@ -100,6 +92,15 @@ Rectangle rectangle_from_row_column(int row, int column) {
     };
 };
 
+Vector2 row_col_from_mouse_position(Vector2 mouse_position) {
+    // auto x = ((int)trunc(mouse_position.x) - Board::OFFSET) / LENGTH;
+    // auto y = ((int)trunc(mouse_position.y) - Board::OFFSET) / LENGTH;
+    auto row = ((int)trunc(mouse_position.x)) / Constants::SQUARE_LENGTH;
+    auto y = ((int)trunc(mouse_position.y)) / Constants::SQUARE_LENGTH;
+    auto col = 7 - y;
+    return Vector2{(float)row, (float)col};
+}
+
 // int transpose(std::array<std::array<int, 8>, 8> *pieces, Vector2 initial_position, int drow, int dcol) {
 //     int piece = (*pieces)[initial_position.x][initial_position.y];
 //     int y;
@@ -114,6 +115,8 @@ Rectangle rectangle_from_row_column(int row, int column) {
 //
 //     return (*pieces)[initial_position.x + drow][initial_position.y + y];
 // }
+
+// TODO: pick one of them
 Vector2 transpose(std::array<std::array<int, 8>, 8> *pieces, Vector2 initial_position, int drow, int dcol) {
     int piece = (*pieces)[initial_position.x][initial_position.y];
     Vector2 final;
@@ -127,6 +130,66 @@ Vector2 transpose(std::array<std::array<int, 8>, 8> *pieces, Vector2 initial_pos
             break;
     }
     return final;
+}
+
+int forward(int color, int col, int dcol) {
+    switch (color) {
+        case Piece::Black:
+            return col + dcol;
+            break;
+        case Piece::White:
+            return col - dcol;
+            break;
+    }
+    return 0;
+}
+
+std::tuple<int, Texture2D> load_piece_texture(int piece) {
+    std::string filename = "assets/pieces/";
+
+    // Color
+    if (piece & Piece::Black) {
+        filename.append("b");
+    } else if (piece & Piece::White) {
+        filename.append("w");
+    }
+
+    if (piece_type(piece) == Piece::Queen) {
+        filename.append("Q");
+    } else if (piece_type(piece) == Piece::Bishop) {
+        filename.append("B");
+    } else if (piece_type(piece) == Piece::Pawn) {
+        filename.append("P");
+    } else if (piece_type(piece) == Piece::King) {
+        filename.append("K");
+    } else if (piece_type(piece) == Piece::Knight) {
+        filename.append("N");
+    } else if (piece_type(piece) == Piece::Rook) {
+        filename.append("R");
+    }
+
+    filename.append(".png");
+
+    return std::make_tuple(piece, LoadTexture(filename.c_str()));
+}
+
+std::vector<std::tuple<int, Texture2D>> load_textures(std::array<std::array<int, 8>, 8> *pieces) {
+    std::vector<std::tuple<int, Texture2D>> all_textures;
+    for (int row = 0; row < 8; row++) {
+        for (int column = 0; column < 8; column++) {
+            int piece = (*pieces)[row][column];
+            if (piece) {
+                all_textures.emplace_back(load_piece_texture(piece));
+            }
+        }
+    }
+    return all_textures;
+}
+
+void unload_textures(std::vector<std::tuple<int, Texture2D>> *piece_textures) {
+    for (const auto &[key, value] : (*piece_textures)) {
+        UnloadTexture(value);
+    }
 }
 
 std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column, std::vector<Direction> directions) {
@@ -259,6 +322,13 @@ std::vector<std::array<int, 2>> get_squares_in_directions(std::array<std::array<
     return result;
 }
 
+typedef struct Position {
+    int x;
+    int y;
+} Position;
+
+bool position_is_within_board(std::array<int, 2> position) { return (position[0]); }
+
 /* Generic function for any piece */
 bool is_valid_move(std::array<std::array<int, 8>, 8> *pieces, Vector2 starting_position, Vector2 ending_position) {
     int starting_piece = (*pieces)[starting_position.x][starting_position.y];
@@ -270,12 +340,6 @@ bool is_valid_move(std::array<std::array<int, 8>, 8> *pieces, Vector2 starting_p
 
     if (piece_color(starting_piece) == piece_color(ending_piece)) {
         return false;
-    }
-
-    // TODO: optimization
-    for (int x = 0; x < 8; x++) {
-        for (int y = 0; y < 8; y++) {
-        }
     }
 
     return true;
@@ -336,32 +400,73 @@ std::vector<std::array<int, 2>> get_pawn_moves(std::array<std::array<int, 8>, 8>
 
     int piece = (*pieces)[row][column];
 
-    // If there is no piece in front of the pawn, it can move 1 square forward
-    auto rc = transpose(pieces, {(float)row, (float)column}, 0, 1);
-    auto t = (*pieces)[rc.x][rc.y];
-    ;
-    if (!t) {
-        result.push_back({(int)rc.x, (int)rc.y});
+    Vector2 inital_position = Vector2{(float)row, (float)column};
+    Vector2 possible_position;
+
+    // If moving up one is a ___ position
+    possible_position = Vector2{(float)row, (float)forward(piece_color(piece), column, 1)};
+    if (is_valid_move(pieces, inital_position, possible_position)) {
+        // If theres nothing in front
+        if ((*pieces)[possible_position.x][possible_position.y] == Piece::None) {
+            // i can move up one
+            result.push_back({(int)possible_position.x, (int)possible_position.y});
+
+            // additionally, if im on the second column
+            bool im_on_the_second_column = (piece_color(piece) == Piece::White && column == 6) || (piece_color(piece) == Piece::Black && column == 1);
+            if (im_on_the_second_column) {
+                // and theres nobody there
+                possible_position = Vector2{(float)row, (float)forward(piece_color(piece), column, 2)};
+                if (is_valid_move(pieces, inital_position, possible_position)) {
+                    if ((*pieces)[possible_position.x][possible_position.y] == Piece::None) {
+                        // i can move up two
+                        result.push_back({(int)possible_position.x, (int)possible_position.y});
+                    }
+                }
+            }
+        }
     }
+
+    // auto rc = transpose(pieces, {(float)row, (float)column}, 0, 1);
+    // auto t = (*pieces)[rc.x][rc.y];
+    // ;
+    // if (!t) {
+    //     result.push_back({(int)rc.x, (int)rc.y});
+    // }
 
     // If theres nothing in front, and if it's on the second file, it can move 2 square forward
     //
-    auto rc2 = transpose(pieces, {(float)row, (float)column}, 0, 2);
-    auto t2 = (*pieces)[rc2.x][rc2.y];
-    if (!t && !t2) {
-        if ((piece_color(piece) == Piece::White && column == 6) || (piece_color(piece) == Piece::Black && column == 1)) {
-            result.push_back({(int)rc2.x, (int)rc2.y});
-        }
-    }
+    // if (is_valid_move(pieces, inital_position, possible_position)) {
+    //     if ((*pieces)[possible_position.x][possible_position.y] == Piece::None) {
+    //         possible_position = Vector2{(float)row, (float)forward(piece_color(piece), column, 2)};
+    //     }
+    // }
+    // if (is_valid_move(pieces, inital_position, possible_position)) {
+    //     if ((*pieces)[possible_position.x][possible_position.y] == Piece::None) {
+    //         result.push_back({(int)possible_position.x, (int)possible_position.y});
+    //     }
+    // }
 
-    // If theres a piece on the opposite color on the top left/right, it can eat it
-    auto rctl = transpose(pieces, {(float)row, (float)column}, -1, 1);
-    auto tl = (*pieces)[rctl.x][rctl.y];
-    if (tl) {
-        if (piece_color(piece) != piece_color(tl)) {
-            result.push_back({(int)rctl.x, (int)rctl.y});
+    // if (nobody_in_front && possible_position_is_valid && im_on_the_second_column) {
+    //     result.push_back({(int)row, (int)forward(piece_color(piece), column, 2)});
+    // }
+
+    // If theres a piece of the opposite color on the top left/right, it can eat it
+    bool can_move_to_tl = is_valid_move(pieces, {(float)row, (float)column}, {(float)(row - 1), (float)forward(piece_color(piece), column, 1)}) && (*pieces)[row - 1][(float)forward(piece_color(piece), column, 1)];
+    if (can_move_to_tl) {
+        bool tl_has_opposite_color = piece_color(piece) != piece_color((*pieces)[row - 1][forward(piece_color(piece), column, 1)]);
+        if (tl_has_opposite_color) {
+            result.push_back({(int)row - 1, (int)forward(piece_color(piece), column, 1)});
         }
     }
+    //
+    //
+    // auto rctl = transpose(pieces, {(float)row, (float)column}, -1, 1);
+    // auto tl = (*pieces)[rctl.x][rctl.y];
+    // if (tl) {
+    //     if (piece_color(piece) != piece_color(tl)) {
+    //         result.push_back({(int)rctl.x, (int)rctl.y});
+    //     }
+    // }
     auto rctr = transpose(pieces, {(float)row, (float)column}, 1, 1);
     auto tr = (*pieces)[rctr.x][rctr.y];
     if (tr) {
@@ -375,7 +480,7 @@ std::vector<std::array<int, 2>> get_pawn_moves(std::array<std::array<int, 8>, 8>
     return result;
 }
 
-std::vector<std::array<int, 2>> get_valid_moves(std::array<std::array<int, 8>, 8> *squares, std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column) {
+std::vector<std::array<int, 2>> get_primative_moves(std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column) {
     std::vector<std::array<int, 2>> result;
 
     int starting_piece = (*pieces)[starting_row][starting_column];
@@ -387,7 +492,7 @@ std::vector<std::array<int, 2>> get_valid_moves(std::array<std::array<int, 8>, 8
         case (Piece::Bishop):
             d = Directions::Bishop;
             break;
-        case Piece::Rook:
+        case (Piece::Rook):
             d = Directions::Rook;
             break;
         case (Piece::Queen):
@@ -412,69 +517,70 @@ std::vector<std::array<int, 2>> get_valid_moves(std::array<std::array<int, 8>, 8
         result.insert(result.end(), moves.begin(), moves.end());
     }
 
-    debug(std::format("finaly result {}", result));
+    // debug(std::format("finaly result {}", result));
     return result;
 }
 
-Vector2 row_col_from_mouse_position(Vector2 mouse_position) {
-    // auto x = ((int)trunc(mouse_position.x) - Board::OFFSET) / LENGTH;
-    // auto y = ((int)trunc(mouse_position.y) - Board::OFFSET) / LENGTH;
-    auto row = ((int)trunc(mouse_position.x)) / Constants::SQUARE_LENGTH;
-    auto y = ((int)trunc(mouse_position.y)) / Constants::SQUARE_LENGTH;
-    auto col = 7 - y;
-    return Vector2{(float)row, (float)col};
+std::vector<std::array<int, 2>> get_attacking_moves(std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column) {
+    // TODO: pawn moving forward is primative but not attacking
+    return get_primative_moves(pieces, starting_row, starting_column);
 }
 
-std::tuple<int, Texture2D> load_piece_texture(int piece) {
-    std::string filename = "assets/pieces/";
-
-    // Color
-    if (piece & Piece::Black) {
-        filename.append("b");
-    } else if (piece & Piece::White) {
-        filename.append("w");
-    }
-
-    if (piece_type(piece) == Piece::Queen) {
-        filename.append("Q");
-    } else if (piece_type(piece) == Piece::Bishop) {
-        filename.append("B");
-    } else if (piece_type(piece) == Piece::Pawn) {
-        filename.append("P");
-    } else if (piece_type(piece) == Piece::King) {
-        filename.append("K");
-    } else if (piece_type(piece) == Piece::Knight) {
-        filename.append("N");
-    } else if (piece_type(piece) == Piece::Rook) {
-        filename.append("R");
-    }
-
-    filename.append(".png");
-
-    return std::make_tuple(piece, LoadTexture(filename.c_str()));
-}
-
-std::vector<std::tuple<int, Texture2D>> load_textures(std::array<std::array<int, 8>, 8> *pieces) {
-    std::vector<std::tuple<int, Texture2D>> all_textures;
-    for (int row = 0; row < 8; row++) {
-        for (int column = 0; column < 8; column++) {
-            int piece = (*pieces)[row][column];
+bool is_under_attack(int color, std::array<std::array<int, 8>, 8> *pieces) {
+    std::vector<std::array<int, 2>> all_attacking_squares;
+    for (int x = 0; x < 8; x++) {
+        for (int y = 0; y < 8; y++) {
+            int piece = (*pieces)[x][y];
             if (piece) {
-                all_textures.emplace_back(load_piece_texture(piece));
+                if (piece_color(piece) != color) {
+                    auto moves = get_primative_moves(pieces, x, y);
+                    if (piece_type(piece) == Piece::Pawn) {
+                        // TODO: what if you erase(null?)
+                        // if (is_valid_move(pieces, {(float)x, (float)y}, {(float)x, (float)forward(pieces, y, 1)})) {
+                        //     std::array<int, 2> a = {x, forward(pieces, y, 1)};
+                        //
+                        //     moves.erase(std::find(moves.begin(), moves.end(), a));
+                        // }
+                        // std::array<int, 2> b = {x, forward(pieces, y, 2)};
+                        // moves.erase(std::find(moves.begin(), moves.end(), b));
+                    }
+                    all_attacking_squares.insert(all_attacking_squares.end(), moves.begin(), moves.end());
+                }
             }
         }
     }
-    return all_textures;
+
+    debug(std::format("000000"));
+    for (auto &[x, y] : all_attacking_squares) {
+        debug(std::format("attacking positions {} {}", x, y));
+        if (piece_type((*pieces)[x][y]) == Piece::King && (piece_color((*pieces)[x][y]) == color)) {
+            return true;
+        }
+    }
+    return false;
+};
+
+void move_piece(std::array<std::array<int, 8>, 8> *pieces, int i_row, int i_col, int f_row, int f_col) {
+    (*pieces)[f_row][f_col] = (*pieces)[i_row][i_col];
+    if ((i_row != f_row) || (i_col != f_col)) {
+        (*pieces)[i_row][i_col] = Piece::None;
+    }
 }
 
-// void unload_texture(Texture2D piece_texture) {
-//     UnloadTexture(piece_texture);
-// }
+std::vector<std::array<int, 2>> get_valid_moves(std::array<std::array<int, 8>, 8> *pieces, int starting_row, int starting_column) {
+    //
+    std::vector<std::array<int, 2>> result;
+    auto primative_moves = get_primative_moves(pieces, starting_row, starting_column);
+    for (auto &[x, y] : primative_moves) {
+        auto cloned_pieces = (*pieces);                                   // cloned_pieces contains a clone of pieces
+        move_piece(&cloned_pieces, starting_row, starting_column, x, y);  // thats why we can modify without affecting our real board
 
-void unload_textures(std::vector<std::tuple<int, Texture2D>> *piece_textures) {
-    for (const auto &[key, value] : (*piece_textures)) {
-        UnloadTexture(value);
+        // If i make this move and im not under attack after moving, then im safe to do so
+        if (!is_under_attack(piece_color((*pieces)[starting_row][starting_column]), &cloned_pieces)) {
+            result.push_back({x, y});
+        }
     }
+    return result;
 }
 
 void update_squares(std::array<std::array<int, 8>, 8> *squares) {
@@ -500,13 +606,6 @@ void update_squares(std::array<std::array<int, 8>, 8> *squares) {
     // }
 }
 
-void move_piece(std::array<std::array<int, 8>, 8> *pieces, int i_row, int i_col, int f_row, int f_col) {
-    (*pieces)[f_row][f_col] = (*pieces)[i_row][i_col];
-    if ((i_row != f_row) || (i_col != f_col)) {
-        (*pieces)[i_row][i_col] = Piece::None;
-    }
-}
-
 void update_pieces(std::array<std::array<int, 8>, 8> *pieces) {}
 
 Vector2 pressed_mouse_pos = {0, 0};
@@ -521,7 +620,7 @@ void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::ar
             Vector2 inital_row_col = row_col_from_mouse_position(mouse_position);
             // debug(std::format("{}, {}", inital_row_col.x, inital_row_col.y));
 
-            auto valid_moves = get_valid_moves(squares, pieces, inital_row_col.x, inital_row_col.y);
+            auto valid_moves = get_valid_moves(pieces, inital_row_col.x, inital_row_col.y);
 
             (*squares)[inital_row_col.x][inital_row_col.y] ^= Square::Selected;
 
@@ -533,7 +632,7 @@ void update_board(std::array<std::array<int, 8>, 8> *squares, std::array<std::ar
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && pressed_mouse_pos.x) {
         Vector2 inital_row_col = row_col_from_mouse_position(pressed_mouse_pos);
 
-        auto valid_moves = get_valid_moves(squares, pieces, inital_row_col.x, inital_row_col.y);
+        auto valid_moves = get_valid_moves(pieces, inital_row_col.x, inital_row_col.y);
 
         (*squares)[inital_row_col.x][inital_row_col.y] ^= Square::Selected;
         for (auto &[r, c] : valid_moves) {
@@ -663,6 +762,7 @@ int main(void) {
     std::vector<std::tuple<int, Texture2D>> piece_textures = load_textures(&pieces);
 
     // debug(std::format("{}", 0b0110 | 0b1000));
+    // debug(std::format("AA {}", forward(1, 1)));
     // debug(std::format("{}", 0b0001));
     // debug(std::format("{}", (0b0110 | 0b1000) & 0b0001));
 
