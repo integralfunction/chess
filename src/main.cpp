@@ -69,7 +69,7 @@ class Player {
     };
 };
 
-Player player = Player(Piece::White);
+Player player = Player(Piece::Black);
 
 void debug(std::string s) { TraceLog(LOG_INFO, s.c_str()); }
 
@@ -471,7 +471,7 @@ std::vector<Position> get_primative_pawn_positions(std::array<std::array<int, 8>
 
     possible_position = Position{x + 1, forward(color, y, 1)};  // top right
     if (is_valid_primative_move(pieces, inital_position, possible_position)) {
-        // If theres a piece in top left of me
+        // If theres a piece in top right of me
         auto top_left_piece = (*pieces)[possible_position.x][possible_position.y];
         if (top_left_piece) {
             // If the piece in front has opposite color of me
@@ -553,13 +553,6 @@ std::vector<Position> get_all_attacking_positions(int color, std::array<std::arr
 bool is_under_attack(int color, std::array<std::array<int, 8>, 8> *pieces) {
     std::vector<Position> all_attacking_positions;
 
-    // if (color == Piece::Black) {
-    //     // debug(std::format("IM BLACK"));
-    //     all_attacking_positions = get_all_attacking_positions(Piece::White, pieces);
-    // } else {
-    //     // debug(std::format("IM WHITE"));
-    //     all_attacking_positions = get_all_attacking_positions(Piece::Black, pieces);
-    // }
     all_attacking_positions = get_all_attacking_positions(opposite_color(color), pieces);
 
     // debug(std::format("000000"));
@@ -809,7 +802,7 @@ int main(void) {
     const int screenHeight = Constants::SQUARE_LENGTH * 8;
 
     InitWindow(screenWidth, screenHeight, "chess");
-    // SetTargetFPS(60);
+    SetTargetFPS(60);
 
     std::array<std::array<int, 8>, 8> pieces = init_pieces(player.color);
 
@@ -880,7 +873,7 @@ int main(void) {
             DrawRectangle((screenWidth - measurements) / 2.0 - (0.5f * 24.0), (screenHeight / 2.0) - (0.3f * 48), measurements + 24.0, 48, BLACK);
             DrawText("White is checkmated", (screenWidth - measurements) / 2.0, screenHeight / 2.0, 24, WHITE);
         }
-        if (white_cant_move_anywhere && is_under_attack(Piece::Black, &pieces)) {
+        if (black_cant_move_anywhere && is_under_attack(Piece::Black, &pieces)) {
             auto measurements = MeasureText("Black is checkmated", 24);
             DrawRectangle((screenWidth - measurements) / 2.0 - (0.5f * 24.0), (screenHeight / 2.0) - (0.3f * 48), measurements + 24.0, 48, BLACK);
             DrawText("Black is checkmated", (screenWidth - measurements) / 2.0, screenHeight / 2.0, 24, WHITE);
